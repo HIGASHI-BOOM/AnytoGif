@@ -1,4 +1,4 @@
-import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/esm/index.js';
+﻿import { FFmpeg } from './lib/index.js';
 import { fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js';
 
 const sourceInput = document.getElementById('sourceInput');
@@ -21,10 +21,11 @@ const loopInput = document.getElementById('loop');
 const ffmpeg = new FFmpeg();
 let ffmpegReady = false;
 let lastFiles = [];
+const LIB_BASE_URL = new URL('./lib/', import.meta.url);
 
 const resetProgress = () => {
   progressBar.style.width = '0%';
-  statusEl.textContent = 'Waiting for source…';
+  statusEl.textContent = 'Waiting for source...';
 };
 
 const setStatus = (message) => {
@@ -41,18 +42,18 @@ const describeFiles = (files) => {
     return `${files[0].name} (${(files[0].size / 1024 / 1024).toFixed(2)} MB)`;
   }
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-  return `${files.length} PNG frames • ${(totalSize / 1024 / 1024).toFixed(2)} MB`;
+  return `${files.length} PNG frames - ${(totalSize / 1024 / 1024).toFixed(2)} MB`;
 };
 
 const isPngSequence = (files) => files.length > 1 && files.every((file) => file.name.toLowerCase().endsWith('.png'));
 
 const ensureFFmpegLoaded = async () => {
   if (ffmpegReady) return;
-  setStatus('Downloading FFmpeg core (~25 MB)…');
+  setStatus('Downloading FFmpeg core (~25 MB)...');
   await ffmpeg.load({
-    coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
-    wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
-    workerURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/esm/worker.js',
+    coreURL: new URL('ffmpeg-core.js', LIB_BASE_URL).href,
+    wasmURL: new URL('ffmpeg-core.wasm', LIB_BASE_URL).href,
+    workerURL: new URL('worker.js', LIB_BASE_URL).href,
   });
   ffmpeg.on('log', ({ message }) => {
     if (message) {
@@ -300,7 +301,7 @@ convertBtn.addEventListener('click', async () => {
   }
 
   convertBtn.disabled = true;
-  setStatus('Preparing conversion…');
+  setStatus('Preparing conversion...');
   updateProgress(0);
 
   try {
@@ -327,3 +328,4 @@ convertBtn.addEventListener('click', async () => {
     updateProgress(1);
   }
 });
+
