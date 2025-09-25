@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Any to GIF Pro</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Any to GIF Pro</h1>
+    <p class="tagline">Convert MP4 / MOV / AVI videos or PNG sequences into optimized GIFs directly in your browser.</p>
+  </header>
+
+  <main class="app">
+    <section class="card">
+      <h2>1. Load your source</h2>
+      <p class="hint">Supports H.264 MP4, alpha MOV/AVI, and PNG image sequences with transparency.</p>
+      <label class="file-drop" id="fileDrop">
+        <input type="file" id="sourceInput" multiple accept="video/mp4,video/quicktime,video/x-msvideo,image/png" />
+        <span class="file-drop__prompt">Click to browse or drop files here</span>
+        <span class="file-drop__info" id="fileInfo">No file selected</span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>2. Configure output</h2>
+      <form id="optionsForm" class="options-grid">
+        <label>
+          <span>Width (px)</span>
+          <input type="number" id="width" min="1" placeholder="Auto" />
+        </label>
+        <label>
+          <span>Height (px)</span>
+          <input type="number" id="height" min="1" placeholder="Auto" />
+        </label>
+        <label>
+          <span>Frame rate (fps)</span>
+          <input type="number" id="frameRate" min="1" max="60" value="15" />
+        </label>
+        <label>
+          <span>Quality (1-31)</span>
+          <input type="number" id="quality" min="1" max="31" value="15" />
+        </label>
+        <label>
+          <span>Loop count</span>
+          <input type="number" id="loop" min="0" value="0" />
+          <small>0 means infinite looping</small>
+        </label>
+      </form>
+      <button class="primary" id="convertBtn" disabled>Convert to GIF</button>
+    </section>
+
+    <section class="card">
+      <h2>3. Progress</h2>
+      <div class="status" id="status">Waiting for source…</div>
+      <div class="progress">
+        <div class="progress__bar" id="progressBar"></div>
+      </div>
+    </section>
+
+    <section class="card" id="resultCard" hidden>
+      <h2>4. Result</h2>
+      <div class="result">
+        <img id="preview" alt="GIF preview" />
+        <div class="result__meta">
+          <p id="resultDetails"></p>
+          <a id="downloadBtn" class="primary" download="output.gif">Download GIF</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>All conversions happen locally using <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noreferrer">FFmpeg.wasm</a>. No uploads required.</p>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
