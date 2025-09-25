@@ -12,6 +12,25 @@ const downloadBtn = document.getElementById('downloadBtn');
 const resultCard = document.getElementById('resultCard');
 const resultDetails = document.getElementById('resultDetails');
 
+const languageSelect = document.getElementById('languageSelect');
+const languageLabel = document.querySelector('[data-i18n="languageLabel"]');
+const headerTitleEl = document.querySelector('[data-i18n="headerTitle"]');
+const taglineEl = document.querySelector('[data-i18n="tagline"]');
+const stepLoadEl = document.querySelector('[data-i18n="stepLoad"]');
+const hintEl = document.querySelector('[data-i18n="hint"]');
+const stepConfigureEl = document.querySelector('[data-i18n="stepConfigure"]');
+const stepProgressEl = document.querySelector('[data-i18n="stepProgress"]');
+const stepResultEl = document.querySelector('[data-i18n="stepResult"]');
+const fileDropPromptEl = document.querySelector('[data-i18n="fileDropPrompt"]');
+const widthLabelEl = document.querySelector('[data-i18n="widthLabel"]');
+const heightLabelEl = document.querySelector('[data-i18n="heightLabel"]');
+const frameRateLabelEl = document.querySelector('[data-i18n="frameRateLabel"]');
+const qualityLabelEl = document.querySelector('[data-i18n="qualityLabel"]');
+const loopLabelEl = document.querySelector('[data-i18n="loopLabel"]');
+const loopHintEl = document.querySelector('[data-i18n="loopHint"]');
+const convertButtonEl = document.querySelector('[data-i18n="convertButton"]');
+const footerNoteEl = document.querySelector('[data-i18n="footerNote"]');
+
 const widthInput = document.getElementById('width');
 const heightInput = document.getElementById('height');
 const frameRateInput = document.getElementById('frameRate');
@@ -21,35 +40,229 @@ const loopInput = document.getElementById('loop');
 const ffmpeg = new FFmpeg();
 let ffmpegReady = false;
 let lastFiles = [];
+let lastResultSizeMB = null;
 const LIB_BASE_URL = new URL('./lib/', import.meta.url);
+
+const translations = {
+  zh: {
+    pageTitle: 'Any to GIF 专业版',
+    languageLabel: '语言',
+    languageOptions: {
+      zh: '中文',
+      en: '英语',
+    },
+    headerTitle: 'Any to GIF 专业版',
+    tagline: '在浏览器中将 MP4 / MOV / AVI 视频或 PNG 序列转换为优化的 GIF。',
+    steps: {
+      load: '1. 选择源文件',
+      configure: '2. 配置输出',
+      progress: '3. 转换进度',
+      result: '4. 转换结果',
+    },
+    hint: '支持 H.264 MP4、带透明通道的 MOV/AVI，以及带透明度的 PNG 图像序列。',
+    fileDropPrompt: '点击选择文件或将文件拖放到此处',
+    fileInfo: {
+      none: '未选择文件',
+      single: ({ name, sizeMB }) => `${name}（${sizeMB.toFixed(2)} MB）`,
+      multiple: ({ count, sizeMB }) => `${count} 张 PNG 帧 - ${sizeMB.toFixed(2)} MB`,
+    },
+    options: {
+      width: '宽度（像素）',
+      height: '高度（像素）',
+      frameRate: '帧率（fps）',
+      quality: '质量（1-31）',
+      loop: '循环次数',
+      loopHint: '0 表示无限循环',
+      widthPlaceholder: '自动',
+      heightPlaceholder: '自动',
+    },
+    buttons: {
+      convert: '转换为 GIF',
+      download: '下载 GIF',
+    },
+    status: {
+      waiting: '等待源文件...',
+      downloading: '正在下载 FFmpeg 核心（约 25 MB）...',
+      preparing: '正在准备转换...',
+      unsupported: '不支持的文件选择。请选择一个 MP4/MOV/AVI 视频或多个 PNG 帧。',
+      complete: '转换完成！',
+      failed: ({ error }) => `转换失败：${error}`,
+    },
+    resultSize: ({ sizeMB }) => `大小：${sizeMB.toFixed(2)} MB`,
+    footer: '所有转换均在本地使用 <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noreferrer">FFmpeg.wasm</a> 完成，无需上传。',
+  },
+  en: {
+    pageTitle: 'Any to GIF Pro',
+    languageLabel: 'Language',
+    languageOptions: {
+      zh: 'Chinese',
+      en: 'English',
+    },
+    headerTitle: 'Any to GIF Pro',
+    tagline: 'Convert MP4 / MOV / AVI videos or PNG sequences into optimized GIFs directly in your browser.',
+    steps: {
+      load: '1. Load your source',
+      configure: '2. Configure output',
+      progress: '3. Progress',
+      result: '4. Result',
+    },
+    hint: 'Supports H.264 MP4, alpha MOV/AVI, and PNG image sequences with transparency.',
+    fileDropPrompt: 'Click to browse or drop files here',
+    fileInfo: {
+      none: 'No file selected',
+      single: ({ name, sizeMB }) => `${name} (${sizeMB.toFixed(2)} MB)`,
+      multiple: ({ count, sizeMB }) => `${count} PNG frames - ${sizeMB.toFixed(2)} MB`,
+    },
+    options: {
+      width: 'Width (px)',
+      height: 'Height (px)',
+      frameRate: 'Frame rate (fps)',
+      quality: 'Quality (1-31)',
+      loop: 'Loop count',
+      loopHint: '0 means infinite looping',
+      widthPlaceholder: 'Auto',
+      heightPlaceholder: 'Auto',
+    },
+    buttons: {
+      convert: 'Convert to GIF',
+      download: 'Download GIF',
+    },
+    status: {
+      waiting: 'Waiting for source...',
+      downloading: 'Downloading FFmpeg core (~25 MB)...',
+      preparing: 'Preparing conversion...',
+      unsupported: 'Unsupported file selection. Choose a single MP4/MOV/AVI video or multiple PNG frames.',
+      complete: 'Conversion complete!',
+      failed: ({ error }) => `Conversion failed: ${error}`,
+    },
+    resultSize: ({ sizeMB }) => `Size: ${sizeMB.toFixed(2)} MB`,
+    footer: 'All conversions happen locally using <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noreferrer">FFmpeg.wasm</a>. No uploads required.',
+  },
+};
+
+let currentLanguage = 'zh';
+let currentStatus = { type: 'key', key: 'waiting', args: [] };
+
+const updateStatusDisplay = () => {
+  const languagePack = translations[currentLanguage];
+  if (!languagePack) return;
+
+  if (currentStatus.type === 'key') {
+    const renderer = languagePack.status[currentStatus.key];
+    if (typeof renderer === 'function') {
+      statusEl.textContent = renderer({ ...(currentStatus.args[0] || {}) });
+    } else if (typeof renderer === 'string') {
+      statusEl.textContent = renderer;
+    } else {
+      statusEl.textContent = '';
+    }
+  } else if (currentStatus.type === 'message') {
+    statusEl.textContent = currentStatus.message;
+  }
+};
+
+const setStatusKey = (key, params = {}) => {
+  currentStatus = { type: 'key', key, args: [params] };
+  updateStatusDisplay();
+};
+
+const setStatusMessage = (message) => {
+  currentStatus = { type: 'message', message };
+  updateStatusDisplay();
+};
+
+const describeFiles = (files) => {
+  const languagePack = translations[currentLanguage];
+  const formatter = languagePack?.fileInfo;
+  if (!files.length) return formatter?.none ?? '';
+  if (files.length === 1) {
+    const [file] = files;
+    const sizeMB = file.size / 1024 / 1024;
+    return formatter?.single ? formatter.single({ name: file.name, sizeMB }) : '';
+  }
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+  const sizeMB = totalSize / 1024 / 1024;
+  return formatter?.multiple ? formatter.multiple({ count: files.length, sizeMB }) : '';
+};
+
+const updateFileInfo = () => {
+  fileInfo.textContent = describeFiles(lastFiles);
+};
+
+const applyTranslations = (lang) => {
+  if (!translations[lang]) return;
+  currentLanguage = lang;
+  const languagePack = translations[lang];
+
+  document.documentElement.lang = lang;
+  document.title = languagePack.pageTitle;
+
+  if (languageLabel) {
+    languageLabel.textContent = languagePack.languageLabel;
+  }
+
+  if (languageSelect) {
+    languageSelect.value = lang;
+    Array.from(languageSelect.options).forEach((option) => {
+      const label = languagePack.languageOptions[option.value];
+      if (label) {
+        option.textContent = label;
+      }
+    });
+  }
+
+  if (headerTitleEl) headerTitleEl.textContent = languagePack.headerTitle;
+  if (taglineEl) taglineEl.textContent = languagePack.tagline;
+  if (stepLoadEl) stepLoadEl.textContent = languagePack.steps.load;
+  if (stepConfigureEl) stepConfigureEl.textContent = languagePack.steps.configure;
+  if (stepProgressEl) stepProgressEl.textContent = languagePack.steps.progress;
+  if (stepResultEl) stepResultEl.textContent = languagePack.steps.result;
+  if (hintEl) hintEl.textContent = languagePack.hint;
+  if (fileDropPromptEl) fileDropPromptEl.textContent = languagePack.fileDropPrompt;
+  if (widthLabelEl) widthLabelEl.textContent = languagePack.options.width;
+  if (heightLabelEl) heightLabelEl.textContent = languagePack.options.height;
+  if (frameRateLabelEl) frameRateLabelEl.textContent = languagePack.options.frameRate;
+  if (qualityLabelEl) qualityLabelEl.textContent = languagePack.options.quality;
+  if (loopLabelEl) loopLabelEl.textContent = languagePack.options.loop;
+  if (loopHintEl) loopHintEl.textContent = languagePack.options.loopHint;
+  if (widthInput) widthInput.placeholder = languagePack.options.widthPlaceholder;
+  if (heightInput) heightInput.placeholder = languagePack.options.heightPlaceholder;
+  if (convertButtonEl) convertButtonEl.textContent = languagePack.buttons.convert;
+  if (downloadBtn) downloadBtn.textContent = languagePack.buttons.download;
+  if (footerNoteEl) footerNoteEl.innerHTML = languagePack.footer;
+
+  updateFileInfo();
+
+  if (lastResultSizeMB != null) {
+    const formatter = languagePack.resultSize;
+    resultDetails.textContent = typeof formatter === 'function'
+      ? formatter({ sizeMB: lastResultSizeMB })
+      : '';
+  }
+
+  updateStatusDisplay();
+};
+
+if (languageSelect) {
+  languageSelect.addEventListener('change', (event) => {
+    applyTranslations(event.target.value);
+  });
+}
 
 const resetProgress = () => {
   progressBar.style.width = '0%';
-  statusEl.textContent = 'Waiting for source...';
-};
-
-const setStatus = (message) => {
-  statusEl.textContent = message;
+  setStatusKey('waiting');
 };
 
 const updateProgress = (ratio) => {
   progressBar.style.width = `${Math.floor(Math.max(0, Math.min(1, ratio)) * 100)}%`;
 };
 
-const describeFiles = (files) => {
-  if (!files.length) return 'No file selected';
-  if (files.length === 1) {
-    return `${files[0].name} (${(files[0].size / 1024 / 1024).toFixed(2)} MB)`;
-  }
-  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-  return `${files.length} PNG frames - ${(totalSize / 1024 / 1024).toFixed(2)} MB`;
-};
-
 const isPngSequence = (files) => files.length > 1 && files.every((file) => file.name.toLowerCase().endsWith('.png'));
 
 const ensureFFmpegLoaded = async () => {
   if (ffmpegReady) return;
-  setStatus('Downloading FFmpeg core (~25 MB)...');
+  setStatusKey('downloading');
   await ffmpeg.load({
     coreURL: new URL('ffmpeg-core.js', LIB_BASE_URL).href,
     wasmURL: new URL('ffmpeg-core.wasm', LIB_BASE_URL).href,
@@ -57,7 +270,7 @@ const ensureFFmpegLoaded = async () => {
   });
   ffmpeg.on('log', ({ message }) => {
     if (message) {
-      setStatus(message);
+      setStatusMessage(message);
     }
   });
   ffmpeg.on('progress', ({ progress }) => {
@@ -232,7 +445,9 @@ const getOptions = () => {
 
 const syncSelectedFiles = (files) => {
   lastFiles = files;
-  fileInfo.textContent = describeFiles(files);
+  updateFileInfo();
+  lastResultSizeMB = null;
+  resultDetails.textContent = '';
   resultCard.hidden = true;
   convertBtn.disabled = !files.length;
   resetProgress();
@@ -286,7 +501,11 @@ const updateResult = (blob) => {
   downloadBtn.href = url;
   downloadBtn.download = `anytogif-${Date.now()}.gif`;
 
-  resultDetails.textContent = `Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`;
+  lastResultSizeMB = blob.size / 1024 / 1024;
+  const formatter = translations[currentLanguage]?.resultSize;
+  resultDetails.textContent = typeof formatter === 'function'
+    ? formatter({ sizeMB: lastResultSizeMB })
+    : '';
   resultCard.hidden = false;
 };
 
@@ -296,12 +515,12 @@ convertBtn.addEventListener('click', async () => {
 
   const conversionType = inferConversionType(files);
   if (conversionType === 'unsupported') {
-    setStatus('Unsupported file selection. Choose a single MP4/MOV/AVI video or multiple PNG frames.');
+    setStatusKey('unsupported');
     return;
   }
 
   convertBtn.disabled = true;
-  setStatus('Preparing conversion...');
+  setStatusKey('preparing');
   updateProgress(0);
 
   try {
@@ -318,14 +537,17 @@ convertBtn.addEventListener('click', async () => {
       throw new Error('Unsupported conversion type.');
     }
 
-    setStatus('Conversion complete!');
+    setStatusKey('complete');
     updateResult(blob);
   } catch (error) {
     console.error(error);
-    setStatus(`Conversion failed: ${error.message}`);
+    setStatusKey('failed', { error: error?.message ?? '' });
   } finally {
     convertBtn.disabled = false;
     updateProgress(1);
   }
 });
+
+applyTranslations(currentLanguage);
+resetProgress();
 
